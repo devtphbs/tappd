@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, X, Trash2, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { getReceipts, deleteReceipt, exportToCSV } from '../db.js';
+import { formatCurrency } from '../currency.js';
 
 export default function LogTab() {
   const [receipts, setReceipts] = useState([]);
@@ -147,13 +148,6 @@ export default function LogTab() {
     setSelectedCategory('all');
     setDateRange({ start: '', end: '' });
     setShowFilters(false);
-  };
-
-  const formatCurrency = (amount, currency = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
   };
 
   const formatDate = (dateString) => {

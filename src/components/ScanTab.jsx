@@ -1,15 +1,69 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Upload, X, Check, Loader2 } from 'lucide-react';
 import { saveReceipt } from '../db.js';
+import { getUserLocationCurrency, formatCurrency, getCurrencySelectOptions } from '../currency.js';
+import { convertCurrencyWithFallback } from '../api.js';
 
 export default function ScanTab() {
   const [image, setImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [homeCurrency, setHomeCurrency] = useState('USD');
+  const [convertedAmounts, setConvertedAmounts] = useState({});
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  // Get user's location currency on mount
+  React.useEffect(() => {
+    getUserLocationCurrency().then(setHomeCurrency);
+  }, []);
+
+  // Convert amounts when currency or extracted data changes
+  React.useEffect(() => {
+    if (extractedData && extractedData.currency !== homeCurrency) {
+      convertAmounts();
+    }
+  }, [extractedData, homeCurrency]);
+
+  const convertAmounts = async () => {
+    if (!extractedData) return;
+
+    const conversions = {};
+    const fieldsToConvert = ['subtotal', 'tax', 'total'];
+    
+    for (const field of fieldsToConvert) {
+      if (extractedData[field]) {
+        try {
+          conversions[field] = await convertCurrencyWithFallback(
+            extractedData[field],
+            extractedData.currency,
+            homeCurrency
+          );
+        } catch (error) {
+          console.error(`Error converting ${field}:`, error);
+          conversions[field] = extractedData[field];
+        }
+      }
+    }
+
+    // Convert item prices
+    if (extractedData.items) {
+      conversions.items = await Promise.all(
+        extractedData.items.map(async (item) => ({
+          ...item,
+          convertedPrice: await convertCurrencyWithFallback(
+            item.price,
+            extractedData.currency,
+            homeCurrency
+          ).catch(() => item.price)
+        }))
+      );
+    }
+
+    setConvertedAmounts(conversions);
+  };
 
   const handleImageUpload = (file) => {
     const reader = new FileReader();
@@ -291,21 +345,47 @@ export default function ScanTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Home Currency</label>
+            <select
+              value={homeCurrency}
+              onChange={(e) => setHomeCurrency(e.target.value)}
+              className="input-field"
+              disabled={!isEditing}
+            >
+              {getCurrencySelectOptions().map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Original Currency</label>
             <select
               value={extractedData.currency}
               onChange={(e) => setExtractedData({...extractedData, currency: e.target.value})}
               className="input-field"
               disabled={!isEditing}
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="GBP">GBP</option>
-              <option value="JPY">JPY</option>
-              <option value="CAD">CAD</option>
-              <option value="AUD">AUD</option>
+              {getCurrencySelectOptions().map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
+
+          {extractedData.currency !== homeCurrency && Object.keys(convertedAmounts).length > 0 && (
+            <div className="bg-blue-50 p-3 rounded-xl border border-blue-200">
+              <div className="text-sm text-blue-800 font-medium mb-2">Converted to {homeCurrency}:</div>
+              {convertedAmounts.total && (
+                <div className="text-lg font-bold text-blue-900">
+                  {formatCurrency(convertedAmounts.total, homeCurrency)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 mt-6">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign, Calendar } from 'lucide-react';
+import { formatCurrency } from '../currency.js';
 
 export default function OverviewTab() {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
@@ -131,13 +132,6 @@ export default function OverviewTab() {
 
   const categoryTotals = getCategoryTotals();
   const dailySpending = getDailySpending();
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   const getBudgetStatus = (spent, budget) => {
     if (!budget) return 'neutral';
