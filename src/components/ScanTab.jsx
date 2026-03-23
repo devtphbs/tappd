@@ -15,7 +15,13 @@ export default function ScanTab({ user }) {
   const videoRef = useRef(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  // Load user's home currency
+  // Temporarily disable user currency loading for testing
+  React.useEffect(() => {
+    setHomeCurrency('USD');
+  }, []);
+
+  // Original user currency loading (commented out for testing)
+  /*
   React.useEffect(() => {
     if (user) {
       loadUserCurrency();
@@ -33,6 +39,7 @@ export default function ScanTab({ user }) {
       console.error('Error loading user currency:', error);
     }
   };
+  */
 
   // Convert amounts when currency or extracted data changes
   React.useEffect(() => {
@@ -172,15 +179,13 @@ export default function ScanTab({ user }) {
   };
 
   const handleSave = async () => {
-    if (extractedData && user) {
+    if (extractedData) {
       try {
-        // Save to IndexedDB
-        await saveReceipt({
-          ...extractedData,
-          user_id: user.id,
-          home_currency: homeCurrency
-        });
+        // Save to IndexedDB only (temporarily disable Supabase sync)
+        await saveReceipt(extractedData);
         
+        // Original Supabase sync (commented out for testing)
+        /*
         // Sync to Supabase
         const { syncReceiptToSupabase } = await import('../supabase.js');
         await syncReceiptToSupabase({
@@ -188,6 +193,7 @@ export default function ScanTab({ user }) {
           user_id: user.id,
           home_currency: homeCurrency
         });
+        */
         
         // Reset state
         setImage(null);

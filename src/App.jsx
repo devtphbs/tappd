@@ -7,14 +7,24 @@ import Settings from './components/Settings';
 import ChatButton from './components/ChatButton';
 import ChatModal from './components/ChatModal';
 import { Camera, Receipt, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
-import { getCurrentUser, onAuthStateChange } from './supabase.js';
+
+// Temporarily disable Supabase to test basic app functionality
+// import { getCurrentUser, onAuthStateChange } from './supabase.js';
 
 function App() {
   const [activeTab, setActiveTab] = useState('scan');
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null); // Temporarily set to null for testing
+  const [loading, setLoading] = useState(false); // Set to false to skip loading
 
+  // Temporarily disable auth for testing
+  useEffect(() => {
+    setLoading(false);
+    setUser(null);
+  }, []);
+
+  // Original auth code (commented out for testing)
+  /*
   useEffect(() => {
     // Check for existing user session
     const checkUser = async () => {
@@ -37,6 +47,7 @@ function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+  */
 
   const tabs = [
     { id: 'scan', label: 'Scan', icon: Camera, component: ScanTab },
