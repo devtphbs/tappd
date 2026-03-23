@@ -8,12 +8,14 @@ import ChatButton from './components/ChatButton';
 import ChatModal from './components/ChatModal';
 import { Camera, Receipt, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
 import { getCurrentUser, onAuthStateChange } from './supabase.js';
+import { haptics } from './utils/haptics.js';
 
 function App() {
   const [activeTab, setActiveTab] = useState('scan');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     // Check for existing user session
@@ -21,8 +23,11 @@ function App() {
       try {
         const currentUser = await getCurrentUser();
         setUser(currentUser);
+        setShowAuth(!currentUser);
+        haptics.pageLoad();
       } catch (error) {
         console.error('Error checking user:', error);
+        setShowAuth(true);
       } finally {
         setLoading(false);
       }
@@ -32,11 +37,22 @@ function App() {
 
     // Listen for auth changes
     const { data: { subscription } } = onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      setShowAuth(!currentUser);
+      
+      if (currentUser) {
+        haptics.success();
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    haptics.tabSwitch();
+  };
 
   const tabs = [
     { id: 'scan', label: 'Scan', icon: Camera, component: ScanTab },
@@ -49,30 +65,27 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen safe-area-top flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="loading-spinner mx-auto mb-4"></div>
+          <p className="text-white/80">Loading Tappd...</p>
         </div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 safe-area-top">
-        <main>
-          <Auth user={user} onAuthChange={setUser} />
-        </main>
-      </div>
-    );
+  // Show auth screen if not authenticated
+  if (showAuth || !user) {
+    return <Auth user={user} onAuthChange={setUser} />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 safe-area-top">
+    <div className="min-h-screen safe-area-top">
       {/* Main Content */}
       <main className="pb-20">
-        <ActiveComponent user={user} />
+        <div className="slide-up">
+          <ActiveComponent user={user} />
+        </div>
       </main>
 
       {/* Bottom Tab Navigation */}
@@ -85,13 +98,15 @@ function App() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
-                  isActive ? 'text-primary-600' : 'text-gray-400'
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex flex-col items-center p-2 rounded-xl transition-all duration-300 ${
+                  isActive 
+                    ? 'text-white scale-110' 
+                    : 'text-white/60 hover:text-white/80'
                 }`}
               >
-                <Icon size={24} />
-                <span className="text-xs mt-1">{tab.label}</span>
+                <Icon size={24} className={isActive ? 'floating' : ''} />
+                <span className="text-xs mt-1 font-medium">{tab.label}</span>
               </button>
             );
           })}
@@ -99,11 +114,17 @@ function App() {
       </nav>
 
       {/* Chat Button */}
-      <ChatButton onClick={() => setIsChatOpen(true)} />
+      <ChatButton onClick={() => {
+        setIsChatOpen(true);
+        haptics.buttonPress();
+      }} />
 
       {/* Chat Modal */}
       {isChatOpen && (
-        <ChatModal onClose={() => setIsChatOpen(false)} />
+        <ChatModal onClose={() => {
+          setIsChatOpen(false);
+          haptics.buttonPress();
+        }} />
       )}
     </div>
   );

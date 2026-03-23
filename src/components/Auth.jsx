@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, Eye, EyeOff, LogOut } from 'lucide-react';
 import { signIn, signUp, signOut, getCurrentUser } from '../supabase.js';
+import { haptics } from '../utils/haptics.js';
 
 export default function Auth({ user, onAuthChange }) {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -24,21 +25,25 @@ export default function Auth({ user, onAuthChange }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setLoading(false);
 
     if (isSignUp && password !== confirmPassword) {
       setError('Passwords do not match');
-      setLoading(false);
+      haptics.error();
       return;
     }
 
     try {
+      haptics.buttonPress();
+      setLoading(true);
+
       const { error } = isSignUp 
         ? await signUp(email, password)
         : await signIn(email, password);
 
       if (error) {
         setError(error.message);
+        haptics.error();
       } else {
         // Save email if remember me is checked
         if (rememberMe) {
@@ -47,6 +52,7 @@ export default function Auth({ user, onAuthChange }) {
           localStorage.removeItem('tappd_email');
         }
         
+        haptics.success();
         // Auth state change will be handled by the listener
         setEmail('');
         setPassword('');
@@ -54,6 +60,7 @@ export default function Auth({ user, onAuthChange }) {
       }
     } catch (err) {
       setError('An unexpected error occurred');
+      haptics.error();
     } finally {
       setLoading(false);
     }
@@ -61,8 +68,10 @@ export default function Auth({ user, onAuthChange }) {
 
   const handleSignOut = async () => {
     try {
+      haptics.buttonPress();
       await signOut();
       localStorage.removeItem('tappd_email');
+      haptics.success();
     } catch (err) {
       console.error('Error signing out:', err);
     }
@@ -70,29 +79,28 @@ export default function Auth({ user, onAuthChange }) {
 
   if (user) {
     return (
-      <div className="p-6">
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold">Welcome back!</h2>
-              <p className="text-sm text-gray-600">{user.email}</p>
+      <div className="min-h-screen safe-area-top flex items-center justify-center p-6">
+        <div className="glass-card max-w-md w-full slide-up">
+          <div className="text-center mb-6">
+            <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 floating">
+              <User size={48} className="text-white" />
             </div>
-            <button
-              onClick={handleSignOut}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <LogOut size={16} />
-              Sign Out
-            </button>
+            <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
+            <p className="text-white/80">{user.email}</p>
           </div>
           
-          <div className="text-center py-4">
-            <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <User size={32} className="text-primary-600" />
-            </div>
-            <p className="text-sm text-gray-600">
+          <div className="text-center py-6">
+            <p className="text-white/70 mb-6">
               You're all set! Start scanning receipts to track your spending.
             </p>
+            
+            <button
+              onClick={handleSignOut}
+              className="glass-button w-full flex items-center justify-center gap-2"
+            >
+              <LogOut size={20} />
+              Sign Out
+            </button>
           </div>
         </div>
       </div>
@@ -100,35 +108,41 @@ export default function Auth({ user, onAuthChange }) {
   }
 
   return (
-    <div className="p-6">
-      <div className="card">
-        <div className="text-center mb-6">
-          <div className="w-20 h-20 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-3xl font-bold">T</span>
+    <div className="min-h-screen safe-area-top flex items-center justify-center p-6">
+      <div className="glass-card max-w-md w-full slide-up liquid-fill">
+        <div className="text-center mb-8">
+          <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 floating">
+            <span className="text-white text-5xl font-bold">T</span>
           </div>
-          <h1 className="text-2xl font-bold mb-2">Tappd</h1>
-          <p className="text-gray-600">AI-powered receipt scanner</p>
+          <h1 className="text-4xl font-bold mb-2">Tappd</h1>
+          <p className="text-white/80">AI-powered receipt scanner</p>
         </div>
 
-        <div className="flex items-center justify-center mb-6 bg-gray-100 rounded-lg p-1">
+        <div className="flex items-center justify-center mb-8 bg-white/10 rounded-2xl p-1 backdrop-blur">
           <button
             type="button"
-            onClick={() => setIsSignUp(false)}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            onClick={() => {
+              setIsSignUp(false);
+              haptics.tabSwitch();
+            }}
+            className={`flex-1 py-3 px-6 rounded-xl text-sm font-medium transition-all duration-300 ${
               !isSignUp 
-                ? 'bg-white text-primary-600 shadow-sm' 
-                : 'text-gray-500'
+                ? 'bg-white/20 text-white' 
+                : 'text-white/60'
             }`}
           >
             Sign In
           </button>
           <button
             type="button"
-            onClick={() => setIsSignUp(true)}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+            onClick={() => {
+              setIsSignUp(true);
+              haptics.tabSwitch();
+            }}
+            className={`flex-1 py-3 px-6 rounded-xl text-sm font-medium transition-all duration-300 ${
               isSignUp 
-                ? 'bg-white text-primary-600 shadow-sm' 
-                : 'text-gray-500'
+                ? 'bg-white/20 text-white' 
+                : 'text-white/60'
             }`}
           >
             Sign Up
@@ -137,14 +151,15 @@ export default function Auth({ user, onAuthChange }) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-white/80 mb-2">Email</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="input-field pl-10"
+                onFocus={() => haptics.inputFocus()}
+                className="glass-input pl-12"
                 placeholder="your@email.com"
                 required
               />
@@ -152,22 +167,26 @@ export default function Auth({ user, onAuthChange }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-white/80 mb-2">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-field pl-10 pr-10"
+                onFocus={() => haptics.inputFocus()}
+                className="glass-input pl-12 pr-12"
                 placeholder="••••••••"
                 required
                 minLength={6}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                onClick={() => {
+                  setShowPassword(!showPassword);
+                  haptics.buttonPress();
+                }}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white/60"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -176,14 +195,15 @@ export default function Auth({ user, onAuthChange }) {
 
           {isSignUp && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <label className="block text-sm font-medium text-white/80 mb-2">Confirm Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="input-field pl-10"
+                  onFocus={() => haptics.inputFocus()}
+                  className="glass-input pl-12"
                   placeholder="••••••••"
                   required
                   minLength={6}
@@ -197,16 +217,19 @@ export default function Auth({ user, onAuthChange }) {
               type="checkbox"
               id="remember"
               checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              onChange={(e) => {
+                setRememberMe(e.target.checked);
+                haptics.selection();
+              }}
+              className="h-4 w-4 bg-white/20 border-white/30 rounded focus:ring-2 focus:ring-white/50"
             />
-            <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+            <label htmlFor="remember" className="ml-2 block text-sm text-white/80">
               Remember me
             </label>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+            <div className="bg-red-500/20 backdrop-blur border border-red-500/30 text-red-200 p-3 rounded-xl text-sm haptic-medium">
               {error}
             </div>
           )}
@@ -214,9 +237,16 @@ export default function Auth({ user, onAuthChange }) {
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full"
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:scale-100"
           >
-            {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Please wait...
+              </div>
+            ) : (
+              isSignUp ? 'Create Account' : 'Sign In'
+            )}
           </button>
         </form>
 
@@ -226,8 +256,9 @@ export default function Auth({ user, onAuthChange }) {
             onClick={() => {
               setIsSignUp(!isSignUp);
               setError('');
+              haptics.tabSwitch();
             }}
-            className="text-primary-600 text-sm font-medium"
+            className="text-white/80 text-sm font-medium hover:text-white transition-colors"
           >
             {isSignUp 
               ? 'Already have an account? Sign in' 
@@ -236,7 +267,7 @@ export default function Auth({ user, onAuthChange }) {
           </button>
         </div>
 
-        <div className="mt-4 text-xs text-gray-500 text-center">
+        <div className="mt-4 text-xs text-white/60 text-center">
           By continuing, you agree to our Terms of Service and Privacy Policy
         </div>
       </div>
