@@ -2,12 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign, Calendar } from 'lucide-react';
 import { formatCurrency } from '../currency.js';
 
-export default function OverviewTab() {
+export default function OverviewTab({ user }) {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [receipts, setReceipts] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [showBudgetSetup, setShowBudgetSetup] = useState(false);
+  const [homeCurrency, setHomeCurrency] = useState('USD');
+
+  // Load user's home currency
+  React.useEffect(() => {
+    if (user) {
+      loadUserCurrency();
+    }
+  }, [user]);
+
+  const loadUserCurrency = async () => {
+    try {
+      const { getUserSettings } = await import('../supabase.js');
+      const { data } = await getUserSettings(user.id);
+      if (data) {
+        setHomeCurrency(data.home_currency || 'USD');
+      }
+    } catch (error) {
+      console.error('Error loading user currency:', error);
+    }
+  };
 
   const categories = [
     { key: 'food', label: 'Food & Dining', icon: '🍔', color: 'bg-green-500' },
@@ -190,7 +210,7 @@ export default function OverviewTab() {
       <div className="card mb-6">
         <div className="text-center">
           <div className="text-sm text-gray-600 mb-1">Total Spending</div>
-          <div className="text-3xl font-bold mb-2">{formatCurrency(currentMonthTotal)}</div>
+          <div className="text-3xl font-bold mb-2">{formatCurrency(currentMonthTotal, homeCurrency)}</div>
           <div className={`flex items-center justify-center gap-1 text-sm ${
             monthOverMonth > 0 ? 'text-red-600' : 'text-green-600'
           }`}>

@@ -3,7 +3,7 @@ import { Search, Filter, Calendar, X, Trash2, ChevronDown, ChevronUp, Download }
 import { getReceipts, deleteReceipt, exportToCSV } from '../db.js';
 import { formatCurrency } from '../currency.js';
 
-export default function LogTab() {
+export default function LogTab({ user }) {
   const [receipts, setReceipts] = useState([]);
   const [filteredReceipts, setFilteredReceipts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,6 +11,26 @@ export default function LogTab() {
   const [expandedReceipt, setExpandedReceipt] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [homeCurrency, setHomeCurrency] = useState('USD');
+
+  // Load user's home currency
+  React.useEffect(() => {
+    if (user) {
+      loadUserCurrency();
+    }
+  }, [user]);
+
+  const loadUserCurrency = async () => {
+    try {
+      const { getUserSettings } = await import('../supabase.js');
+      const { data } = await getUserSettings(user.id);
+      if (data) {
+        setHomeCurrency(data.home_currency || 'USD');
+      }
+    } catch (error) {
+      console.error('Error loading user currency:', error);
+    }
+  };
 
   const categories = [
     { value: 'all', label: 'All Categories' },

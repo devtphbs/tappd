@@ -4,7 +4,7 @@ import { saveReceipt } from '../db.js';
 import { getUserLocationCurrency, formatCurrency, getCurrencySelectOptions } from '../currency.js';
 import { convertCurrencyWithFallback } from '../api.js';
 
-export default function ScanTab() {
+export default function ScanTab({ user }) {
   const [image, setImage] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
@@ -15,10 +15,24 @@ export default function ScanTab() {
   const videoRef = useRef(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
-  // Get user's location currency on mount
+  // Load user's home currency
   React.useEffect(() => {
-    getUserLocationCurrency().then(setHomeCurrency);
-  }, []);
+    if (user) {
+      loadUserCurrency();
+    }
+  }, [user]);
+
+  const loadUserCurrency = async () => {
+    try {
+      const { getUserSettings } = await import('../supabase.js');
+      const { data } = await getUserSettings(user.id);
+      if (data) {
+        setHomeCurrency(data.home_currency || 'USD');
+      }
+    } catch (error) {
+      console.error('Error loading user currency:', error);
+    }
+  };
 
   // Convert amounts when currency or extracted data changes
   React.useEffect(() => {
@@ -82,10 +96,18 @@ export default function ScanTab() {
     }
   };
 
+  const handleLibraryUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -150,9 +172,22 @@ export default function ScanTab() {
   };
 
   const handleSave = async () => {
-    if (extractedData) {
+    if (extractedData && user) {
       try {
-        await saveReceipt(extractedData);
+        // Save to IndexedDB
+        await saveReceipt({
+          ...extractedData,
+          user_id: user.id,
+          home_currency: homeCurrency
+        });
+        
+        // Sync to Supabase
+        const { syncReceiptToSupabase } = await import('../supabase.js');
+        await syncReceiptToSupabase({
+          ...extractedData,
+          user_id: user.id,
+          home_currency: homeCurrency
+        });
         
         // Reset state
         setImage(null);
@@ -431,22 +466,21 @@ export default function ScanTab() {
           Take Photo
         </button>
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={handleLibraryUpload}
           className="w-full btn-secondary flex items-center justify-center gap-3"
         >
           <Upload size={24} />
           Upload from Library
         </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
       </div>
 
       <div className="mt-8 text-center text-sm text-gray-500">
