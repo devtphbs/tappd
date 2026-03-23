@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Globe, Save, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Globe, Save, Check } from 'lucide-react';
 import { getCurrencySelectOptions } from '../currency.js';
 import { getUserSettings, updateUserSettings } from '../supabase.js';
 
@@ -49,7 +49,7 @@ export default function Settings({ user }) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
-          <Settings className="mx-auto mb-4 text-gray-400" size={48} />
+          <SettingsIcon className="mx-auto mb-4 text-gray-400" size={48} />
           <h3 className="text-lg font-semibold mb-2">Sign in required</h3>
           <p className="text-gray-600">Please sign in to access settings</p>
         </div>
