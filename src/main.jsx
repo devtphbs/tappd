@@ -3,9 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// Temporarily disable service worker for testing
-/*
-// Force service worker update
+// Service worker registration for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -34,7 +32,6 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
-*/
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
