@@ -1,95 +1,127 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import ScanTab from './components/ScanTab';
+import LogTab from './components/LogTab';
+import OverviewTab from './components/OverviewTab';
+import Auth from './components/Auth';
+import Settings from './components/Settings';
+import ChatButton from './components/ChatButton';
+import ChatModal from './components/ChatModal';
+import { Camera, Receipt, TrendingUp, Settings as SettingsIcon } from 'lucide-react';
+import { getCurrentUser, onAuthStateChange } from './supabase.js';
+import { haptics } from './utils/haptics.js';
 
 function App() {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    }}>
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        padding: '32px',
-        maxWidth: '400px',
-        width: '100%',
-        animation: 'slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '128px',
-            height: '128px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-            borderRadius: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 24px',
-            animation: 'float 3s ease-in-out infinite'
-          }}>
-            <span style={{
-              color: 'white',
-              fontSize: '48px',
-              fontWeight: 'bold'
-            }}>T</span>
-          </div>
-          <h1 style={{
-            fontSize: '36px',
-            fontWeight: 'bold',
-            color: 'white',
-            marginBottom: '8px'
-          }}>Tappd</h1>
-          <p style={{
-            color: 'rgba(255, 255, 255, 0.8)',
-            fontSize: '16px'
-          }}>AI-powered receipt scanner</p>
-        </div>
+  const [activeTab, setActiveTab] = useState('scan');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-        <div style={{ textAlign: 'center' }}>
-          <p style={{
-            color: 'rgba(255, 255, 255, 0.7)',
-            marginBottom: '24px',
-            fontSize: '14px'
-          }}>
-            Beautiful iOS 26 Liquid Glass Design
-          </p>
-          
-          <button style={{
-            width: '100%',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-            color: 'white',
-            padding: '16px',
-            borderRadius: '16px',
-            fontWeight: '600',
-            fontSize: '16px',
-            border: 'none',
-            cursor: 'pointer',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-          }}>
-            Get Started
-          </button>
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+        if (currentUser) {
+          haptics.pageLoad();
+        }
+      } catch (error) {
+        console.error('Error checking user:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkUser();
+
+    const { data: { subscription } } = onAuthStateChange((event, session) => {
+      const currentUser = session?.user || null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        haptics.success();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    haptics.tabSwitch();
+  };
+
+  const tabs = [
+    { id: 'scan', label: 'Scan', icon: Camera, component: ScanTab },
+    { id: 'log', label: 'Log', icon: Receipt, component: LogTab },
+    { id: 'overview', label: 'Overview', icon: TrendingUp, component: OverviewTab },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon, component: Settings },
+  ];
+
+  const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component || ScanTab;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen safe-area-top flex items-center justify-center">
+        <div className="text-center">
+          <div className="loading-spinner mx-auto mb-4"></div>
+          <p className="text-white/80">Loading Tappd...</p>
         </div>
       </div>
+    );
+  }
 
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-10px); }
-        }
-        
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
+  // Show auth screen if not authenticated
+  if (!user) {
+    return <Auth user={user} onAuthChange={setUser} />;
+  }
+
+  return (
+    <div className="min-h-screen safe-area-top">
+      {/* Main Content */}
+      <main className="pb-20">
+        <div className="slide-up">
+          <ActiveComponent user={user} />
+        </div>
+      </main>
+
+      {/* Bottom Tab Navigation */}
+      <nav className="tab-bar">
+        <div className="flex justify-around items-center py-2">
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`flex flex-col items-center p-2 rounded-xl transition-all duration-300 ${
+                  isActive 
+                    ? 'text-white scale-110' 
+                    : 'text-white/60 hover:text-white/80'
+                }`}
+              >
+                <Icon size={24} className={isActive ? 'floating' : ''} />
+                <span className="text-xs mt-1 font-medium">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Chat Button */}
+      <ChatButton onClick={() => {
+        setIsChatOpen(true);
+        haptics.buttonPress();
+      }} />
+
+      {/* Chat Modal */}
+      {isChatOpen && (
+        <ChatModal onClose={() => {
+          setIsChatOpen(false);
+          haptics.buttonPress();
+        }} />
+      )}
     </div>
   );
 }
