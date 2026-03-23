@@ -1,122 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign, Calendar } from 'lucide-react';
-import { formatCurrency } from '../currency.js';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, ShoppingCart, Coffee, Car, Gamepad2, Zap, Heart } from 'lucide-react';
+import { getUserReceipts } from '../supabase.js';
+import { getUserSettings } from '../supabase.js';
+import { haptics } from '../utils/haptics.js';
 
 export default function OverviewTab({ user }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [receipts, setReceipts] = useState([]);
-  const [budgets, setBudgets] = useState({});
-  const [showBudgetSetup, setShowBudgetSetup] = useState(false);
   const [homeCurrency, setHomeCurrency] = useState('USD');
-
-  // Load user's home currency
-  React.useEffect(() => {
-    if (user) {
-      loadUserCurrency();
-    }
-  }, [user]);
-
-  const loadUserCurrency = async () => {
-    try {
-      const { getUserSettings } = await import('../supabase.js');
-      const { data } = await getUserSettings(user.id);
-      if (data) {
-        setHomeCurrency(data.home_currency || 'USD');
-      }
-    } catch (error) {
-      console.error('Error loading user currency:', error);
-    }
-  };
-
-  const categories = [
-    { key: 'food', label: 'Food & Dining', icon: '🍔', color: 'bg-green-500' },
-    { key: 'shopping', label: 'Shopping', icon: '🛍️', color: 'bg-purple-500' },
-    { key: 'travel', label: 'Travel', icon: '✈️', color: 'bg-blue-500' },
-    { key: 'entertainment', label: 'Entertainment', icon: '🎮', color: 'bg-pink-500' },
-    { key: 'health', label: 'Health & Fitness', icon: '💪', color: 'bg-red-500' },
-    { key: 'transport', label: 'Transportation', icon: '🚗', color: 'bg-yellow-500' },
-    { key: 'bills', label: 'Bills & Utilities', icon: '📱', color: 'bg-gray-500' },
-    { key: 'other', label: 'Other', icon: '📦', color: 'bg-indigo-500' }
-  ];
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     loadData();
-  }, [currentMonth, currentYear]);
+  }, [selectedMonth, selectedYear]);
 
   const loadData = async () => {
-    // TODO: Load actual data from IndexedDB
-    const mockReceipts = [
-      {
-        id: 1,
-        merchant: 'Starbucks',
-        date: '2024-03-23',
-        category: 'food',
-        total: 9.72,
-        currency: 'USD'
-      },
-      {
-        id: 2,
-        merchant: 'Whole Foods',
-        date: '2024-03-22',
-        category: 'food',
-        total: 45.67,
-        currency: 'USD'
-      },
-      {
-        id: 3,
-        merchant: 'Uber',
-        date: '2024-03-21',
-        category: 'transport',
-        total: 12.50,
-        currency: 'USD'
-      },
-      {
-        id: 4,
-        merchant: 'Netflix',
-        date: '2024-03-20',
-        category: 'entertainment',
-        total: 15.99,
-        currency: 'USD'
-      },
-      {
-        id: 5,
-        merchant: 'Gym Membership',
-        date: '2024-03-15',
-        category: 'health',
-        total: 50.00,
-        currency: 'USD'
+    try {
+      const [receiptsData, settingsData] = await Promise.all([
+        getUserReceipts(user.id),
+        getUserSettings(user.id)
+      ]);
+      
+      setReceipts(receiptsData.data || []);
+      if (settingsData.data?.home_currency) {
+        setHomeCurrency(settingsData.data.home_currency);
       }
-    ];
-    setReceipts(mockReceipts);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const mockBudgets = {
-      food: 500,
-      shopping: 300,
-      travel: 200,
-      entertainment: 100,
-      health: 100,
-      transport: 150,
-      bills: 500,
-      other: 100
-    };
-    setBudgets(mockBudgets);
+  const formatCurrency = (amount, currency = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(amount);
   };
 
   const getMonthReceipts = () => {
     return receipts.filter(receipt => {
       const receiptDate = new Date(receipt.date);
-      return receiptDate.getMonth() === currentMonth && receiptDate.getFullYear() === currentYear;
-    });
-  };
-
-  const getLastMonthReceipts = () => {
-    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const lastYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    
-    return receipts.filter(receipt => {
-      const receiptDate = new Date(receipt.date);
-      return receiptDate.getMonth() === lastMonth && receiptDate.getFullYear() === lastYear;
+      return receiptDate.getMonth() === selectedMonth && receiptDate.getFullYear() === selectedYear;
     });
   };
 
@@ -124,10 +51,9 @@ export default function OverviewTab({ user }) {
     const monthReceipts = getMonthReceipts();
     const totals = {};
     
-    categories.forEach(cat => {
-      totals[cat.key] = monthReceipts
-        .filter(r => r.category === cat.key)
-        .reduce((sum, r) => sum + r.total, 0);
+    monthReceipts.forEach(receipt => {
+      const category = receipt.category || 'Other';
+      totals[category] = (totals[category] || 0) + receipt.total;
     });
     
     return totals;
@@ -138,201 +64,212 @@ export default function OverviewTab({ user }) {
     const daily = {};
     
     monthReceipts.forEach(receipt => {
-      const day = receipt.date.split('-')[2];
+      const day = new Date(receipt.date).getDate();
       daily[day] = (daily[day] || 0) + receipt.total;
     });
     
-    return daily;
+    // Fill missing days with 0
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const result = [];
+    for (let i = 1; i <= daysInMonth; i++) {
+      result.push(daily[i] || 0);
+    }
+    
+    return result;
   };
 
-  const currentMonthTotal = getMonthReceipts().reduce((sum, r) => sum + r.total, 0);
-  const lastMonthTotal = getLastMonthReceipts().reduce((sum, r) => sum + r.total, 0);
-  const monthOverMonth = currentMonthTotal - lastMonthTotal;
-  const monthOverMonthPercent = lastMonthTotal > 0 ? ((monthOverMonth / lastMonthTotal) * 100).toFixed(1) : 0;
+  const getTotalSpending = () => {
+    const monthReceipts = getMonthReceipts();
+    return monthReceipts.reduce((sum, receipt) => sum + receipt.total, 0);
+  };
 
+  const getAverageSpending = () => {
+    const monthReceipts = getMonthReceipts();
+    if (monthReceipts.length === 0) return 0;
+    return getTotalSpending() / monthReceipts.length;
+  };
+
+  const getCategoryIcon = (category) => {
+    const icons = {
+      'Food & Dining': Coffee,
+      'Transportation': Car,
+      'Shopping': ShoppingCart,
+      'Entertainment': Gamepad2,
+      'Bills & Utilities': Zap,
+      'Healthcare': Heart,
+    };
+    return icons[category] || DollarSign;
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      'Food & Dining': 'from-orange-500 to-red-500',
+      'Transportation': 'from-blue-500 to-cyan-500',
+      'Shopping': 'from-purple-500 to-pink-500',
+      'Entertainment': 'from-pink-500 to-rose-500',
+      'Bills & Utilities': 'from-yellow-500 to-orange-500',
+      'Healthcare': 'from-green-500 to-emerald-500',
+    };
+    return colors[category] || 'from-gray-500 to-gray-600';
+  };
+
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="loading-spinner mx-auto mb-4"></div>
+          <p className="text-white/80">Loading overview...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const monthReceipts = getMonthReceipts();
   const categoryTotals = getCategoryTotals();
   const dailySpending = getDailySpending();
-
-  const getBudgetStatus = (spent, budget) => {
-    if (!budget) return 'neutral';
-    const percent = (spent / budget) * 100;
-    if (percent >= 100) return 'over';
-    if (percent >= 80) return 'warning';
-    return 'good';
-  };
-
-  const getBudgetColor = (status) => {
-    switch (status) {
-      case 'over': return 'text-red-600 bg-red-50 border-red-200';
-      case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'good': return 'text-green-600 bg-green-50 border-green-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
-
-  const changeMonth = (direction) => {
-    if (direction === 'prev') {
-      if (currentMonth === 0) {
-        setCurrentMonth(11);
-        setCurrentYear(currentYear - 1);
-      } else {
-        setCurrentMonth(currentMonth - 1);
-      }
-    } else {
-      if (currentMonth === 11) {
-        setCurrentMonth(0);
-        setCurrentYear(currentYear + 1);
-      } else {
-        setCurrentMonth(currentMonth + 1);
-      }
-    }
-  };
+  const totalSpending = getTotalSpending();
+  const averageSpending = getAverageSpending();
 
   return (
     <div className="p-6">
-      {/* Month Selector */}
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={() => changeMonth('prev')} className="p-2">
-          <TrendingDown size={20} />
-        </button>
-        <h2 className="text-xl font-bold">
-          {monthNames[currentMonth]} {currentYear}
-        </h2>
-        <button onClick={() => changeMonth('next')} className="p-2">
-          <TrendingUp size={20} />
-        </button>
+      <div className="glass-card mb-6">
+        <h2 className="text-2xl font-bold mb-2">Spending Overview</h2>
+        <p className="text-white/80">Track your expenses and spending patterns</p>
       </div>
 
-      {/* Monthly Summary */}
-      <div className="card mb-6">
-        <div className="text-center">
-          <div className="text-sm text-gray-600 mb-1">Total Spending</div>
-          <div className="text-3xl font-bold mb-2">{formatCurrency(currentMonthTotal, homeCurrency)}</div>
-          <div className={`flex items-center justify-center gap-1 text-sm ${
-            monthOverMonth > 0 ? 'text-red-600' : 'text-green-600'
-          }`}>
-            {monthOverMonth > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-            <span>{monthOverMonth > 0 ? '+' : ''}{monthOverMonthPercent}% from last month</span>
+      <div className="glass-card mb-6">
+        <div className="flex gap-4 mb-6">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="glass-input flex-1"
+          >
+            {months.map((month, index) => (
+              <option key={month} value={index}>{month}</option>
+            ))}
+          </select>
+          
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="glass-input w-32"
+          >
+            {[2024, 2023, 2022].map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/5 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white/60 text-sm">Total Spending</span>
+              <TrendingUp size={16} className="text-green-400" />
+            </div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalSpending, homeCurrency)}
+            </div>
+            <div className="text-white/60 text-xs mt-1">
+              {monthReceipts.length} receipts
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white/60 text-sm">Average</span>
+              <DollarSign size={16} className="text-blue-400" />
+            </div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(averageSpending, homeCurrency)}
+            </div>
+            <div className="text-white/60 text-xs mt-1">
+              Per receipt
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-white/60 text-sm">Daily Average</span>
+              <Calendar size={16} className="text-purple-400" />
+            </div>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalSpending / 30, homeCurrency)}
+            </div>
+            <div className="text-white/60 text-xs mt-1">
+              Per day
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Category Breakdown */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="font-semibold text-lg">Categories</h3>
-          <button
-            onClick={() => setShowBudgetSetup(!showBudgetSetup)}
-            className="text-primary-600 text-sm font-medium"
-          >
-            {showBudgetSetup ? 'Done' : 'Set Budgets'}
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {categories.map(category => {
-            const spent = categoryTotals[category.key] || 0;
-            const budget = budgets[category.key];
-            const status = getBudgetStatus(spent, budget);
-            const percent = budget ? (spent / budget) * 100 : 0;
-
-            return (
-              <div key={category.key} className="card">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">{category.icon}</span>
-                    <span className="font-medium">{category.label}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{formatCurrency(spent)}</div>
-                    {budget && (
-                      <div className="text-xs text-gray-500">of {formatCurrency(budget)}</div>
-                    )}
-                  </div>
-                </div>
-
-                {budget && (
-                  <div className="mb-2">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full transition-all ${
-                          status === 'over' ? 'bg-red-500' :
-                          status === 'warning' ? 'bg-yellow-500' : 'bg-green-500'
-                        }`}
-                        style={{ width: `${Math.min(percent, 100)}%` }}
-                      />
+      <div className="glass-card mb-6">
+        <h3 className="text-lg font-semibold mb-4">Category Breakdown</h3>
+        
+        {Object.keys(categoryTotals).length === 0 ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3">
+              <ShoppingCart size={32} className="text-white/60" />
+            </div>
+            <p className="text-white/60">No spending data for this month</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {Object.entries(categoryTotals)
+              .sort(([,a], [,b]) => b - a)
+              .map(([category, amount]) => {
+                const Icon = getCategoryIcon(category);
+                const percentage = totalSpending > 0 ? (amount / totalSpending) * 100 : 0;
+                
+                return (
+                  <div key={category} className="flex items-center gap-4">
+                    <div className={`w-12 h-12 bg-gradient-to-br ${getCategoryColor(category)} rounded-xl flex items-center justify-center`}>
+                      <Icon size={20} className="text-white" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">{category}</span>
+                        <span className="text-white/80">{formatCurrency(amount, homeCurrency)}</span>
+                      </div>
+                      <div className="w-full bg-white/10 rounded-full h-2">
+                        <div
+                          className={`bg-gradient-to-r ${getCategoryColor(category)} h-2 rounded-full transition-all duration-500`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {showBudgetSetup && (
-                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                    <Target size={16} className="text-gray-400" />
-                    <input
-                      type="number"
-                      placeholder="Budget"
-                      value={budget || ''}
-                      onChange={(e) => setBudgets({
-                        ...budgets,
-                        [category.key]: parseFloat(e.target.value) || 0
-                      })}
-                      className="input-field text-sm flex-1"
-                    />
-                  </div>
-                )}
-
-                {budget && !showBudgetSetup && (
-                  <div className={`text-xs px-2 py-1 rounded-full border ${getBudgetColor(status)}`}>
-                    {status === 'over' && <><AlertTriangle size={12} className="inline mr-1" /> Over budget</>}
-                    {status === 'warning' && <><AlertTriangle size={12} className="inline mr-1" /> {Math.round(percent)}% used</>}
-                    {status === 'good' && <><Target size={12} className="inline mr-1" /> On track</>}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Daily Spending Sparkline */}
-      <div className="card">
-        <h3 className="font-semibold text-lg mb-4">Daily Spending</h3>
-        <div className="flex items-end justify-between h-24 gap-1">
-          {Array.from({ length: 31 }, (_, i) => {
-            const day = (i + 1).toString().padStart(2, '0');
-            const amount = dailySpending[day] || 0;
-            const maxAmount = Math.max(...Object.values(dailySpending), 1);
-            const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
-
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center">
-                <div
-                  className="w-full bg-primary-500 rounded-t"
-                  style={{ height: `${height}%`, minHeight: height > 0 ? '2px' : '0' }}
-                />
-                <span className="text-xs text-gray-500 mt-1">{i + 1}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 gap-3 mt-6">
-        <div className="card text-center">
-          <DollarSign className="mx-auto mb-2 text-primary-600" size={20} />
-          <div className="text-xs text-gray-600">Average/day</div>
-          <div className="font-semibold">
-            {formatCurrency(currentMonthTotal / Math.max(Object.keys(dailySpending).length, 1))}
+                );
+              })}
           </div>
+        )}
+      </div>
+
+      <div className="glass-card">
+        <h3 className="text-lg font-semibold mb-4">Daily Spending</h3>
+        
+        <div className="h-32 flex items-end gap-1">
+          {dailySpending.map((amount, index) => {
+            const maxAmount = Math.max(...dailySpending);
+            const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+            const hasData = amount > 0;
+            
+            return (
+              <div
+                key={index}
+                className="flex-1 bg-gradient-to-t from-purple-500 to-blue-500 rounded-t transition-all duration-300 hover:opacity-80"
+                style={{ height: `${height}%`, minHeight: hasData ? '4px' : '2px' }}
+                title={`Day ${index + 1}: ${formatCurrency(amount, homeCurrency)}`}
+              />
+            );
+          })}
         </div>
-        <div className="card text-center">
-          <Calendar className="mx-auto mb-2 text-primary-600" size={20} />
-          <div className="text-xs text-gray-600">Transactions</div>
-          <div className="font-semibold">{getMonthReceipts().length}</div>
+        
+        <div className="flex justify-between mt-2 text-xs text-white/60">
+          <span>1</span>
+          <span>{dailySpending.length}</span>
         </div>
       </div>
     </div>

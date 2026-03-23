@@ -79,7 +79,7 @@ function App() {
     <div className="min-h-screen safe-area-top">
       {/* Main Content */}
       <main className="pb-20">
-        <div className="slide-up">
+        <div className="animate-slide-up">
           <ActiveComponent user={user} />
         </div>
       </main>
@@ -101,7 +101,7 @@ function App() {
                     : 'text-white/60 hover:text-white/80'
                 }`}
               >
-                <Icon size={24} className={isActive ? 'floating' : ''} />
+                <Icon size={24} className={isActive ? 'animate-float' : ''} />
                 <span className="text-xs mt-1 font-medium">{tab.label}</span>
               </button>
             );

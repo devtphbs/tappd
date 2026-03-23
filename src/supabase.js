@@ -6,7 +6,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Authentication functions
-export async function signUp(email, password) {
+export const signUp = async (email, password) => {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -14,7 +14,7 @@ export async function signUp(email, password) {
   return { data, error }
 }
 
-export async function signIn(email, password) {
+export const signIn = async (email, password) => {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -22,32 +22,31 @@ export async function signIn(email, password) {
   return { data, error }
 }
 
-export async function signOut() {
+export const signOut = async () => {
   const { error } = await supabase.auth.signOut()
   return { error }
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser()
   return user
 }
 
-export async function onAuthStateChange(callback) {
+export const onAuthStateChange = (callback) => {
   return supabase.auth.onAuthStateChange(callback)
 }
 
 // User settings functions
-export async function getUserSettings(userId) {
+export const getUserSettings = async (userId) => {
   const { data, error } = await supabase
     .from('user_settings')
     .select('*')
     .eq('user_id', userId)
     .single()
-  
   return { data, error }
 }
 
-export async function updateUserSettings(userId, settings) {
+export const updateUserSettings = async (userId, settings) => {
   const { data, error } = await supabase
     .from('user_settings')
     .upsert({
@@ -57,30 +56,32 @@ export async function updateUserSettings(userId, settings) {
     })
     .select()
     .single()
-  
   return { data, error }
 }
 
-// Receipt functions for Supabase
-export async function syncReceiptToSupabase(receipt) {
+// Receipt functions
+export const saveReceipt = async (receipt) => {
   const { data, error } = await supabase
     .from('receipts')
-    .upsert({
-      ...receipt,
-      synced_at: new Date().toISOString()
-    })
+    .insert(receipt)
     .select()
     .single()
-  
   return { data, error }
 }
 
-export async function getReceiptsFromSupabase(userId) {
+export const getUserReceipts = async (userId) => {
   const { data, error } = await supabase
     .from('receipts')
     .select('*')
     .eq('user_id', userId)
-    .order('date', { ascending: false })
-  
+    .order('created_at', { ascending: false })
   return { data, error }
+}
+
+export const deleteReceipt = async (receiptId) => {
+  const { error } = await supabase
+    .from('receipts')
+    .delete()
+    .eq('id', receiptId)
+  return { error }
 }

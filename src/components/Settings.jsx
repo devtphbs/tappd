@@ -1,129 +1,235 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Globe, Save, Check, User, MapPin, CreditCard, Bell, Shield, HelpCircle, LogOut } from 'lucide-react';
-import { getCurrencySelectOptions } from '../currency.js';
+import { User, Globe, Bell, Shield, LogOut, ChevronRight, Eye, EyeOff, Key, Smartphone, HelpCircle, FileText, Mail } from 'lucide-react';
 import { getUserSettings, updateUserSettings } from '../supabase.js';
 import { signOut } from '../supabase.js';
-
-const COUNTRIES = [
-  { code: 'US', name: 'United States', currency: 'USD' },
-  { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
-  { code: 'CA', name: 'Canada', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', currency: 'AUD' },
-  { code: 'DE', name: 'Germany', currency: 'EUR' },
-  { code: 'FR', name: 'France', currency: 'EUR' },
-  { code: 'IT', name: 'Italy', currency: 'EUR' },
-  { code: 'ES', name: 'Spain', currency: 'EUR' },
-  { code: 'NL', name: 'Netherlands', currency: 'EUR' },
-  { code: 'JP', name: 'Japan', currency: 'JPY' },
-  { code: 'CN', name: 'China', currency: 'CNY' },
-  { code: 'IN', name: 'India', currency: 'INR' },
-  { code: 'BR', name: 'Brazil', currency: 'BRL' },
-  { code: 'MX', name: 'Mexico', currency: 'MXN' },
-  { code: 'KR', name: 'South Korea', currency: 'KRW' },
-  { code: 'SG', name: 'Singapore', currency: 'SGD' },
-  { code: 'SE', name: 'Sweden', currency: 'SEK' },
-  { code: 'NO', name: 'Norway', currency: 'NOK' },
-  { code: 'DK', name: 'Denmark', currency: 'DKK' },
-  { code: 'CH', name: 'Switzerland', currency: 'CHF' },
-  { code: 'RU', name: 'Russia', currency: 'RUB' },
-  { code: 'TR', name: 'Turkey', currency: 'TRY' },
-  { code: 'ZA', name: 'South Africa', currency: 'ZAR' },
-  { code: 'EG', name: 'Egypt', currency: 'EGP' },
-  { code: 'NG', name: 'Nigeria', currency: 'NGN' },
-  { code: 'KE', name: 'Kenya', currency: 'KES' },
-  { code: 'AR', name: 'Argentina', currency: 'ARS' },
-  { code: 'CL', name: 'Chile', currency: 'CLP' },
-  { code: 'CO', name: 'Colombia', currency: 'COP' },
-  { code: 'PE', name: 'Peru', currency: 'PEN' },
-  { code: 'TH', name: 'Thailand', currency: 'THB' },
-  { code: 'MY', name: 'Malaysia', currency: 'MYR' },
-  { code: 'PH', name: 'Philippines', currency: 'PHP' },
-  { code: 'ID', name: 'Indonesia', currency: 'IDR' },
-  { code: 'VN', name: 'Vietnam', currency: 'VND' },
-  { code: 'PK', name: 'Pakistan', currency: 'PKR' },
-  { code: 'BD', name: 'Bangladesh', currency: 'BDT' },
-  { code: 'NZ', name: 'New Zealand', currency: 'NZD' },
-  { code: 'IL', name: 'Israel', currency: 'ILS' },
-  { code: 'AE', name: 'United Arab Emirates', currency: 'AED' },
-  { code: 'SA', name: 'Saudi Arabia', currency: 'SAR' },
-  { code: 'QA', name: 'Qatar', currency: 'QAR' },
-  { code: 'KW', name: 'Kuwait', currency: 'KWD' },
-  { code: 'BH', name: 'Bahrain', currency: 'BHD' },
-  { code: 'OM', name: 'Oman', currency: 'OMR' },
-].sort((a, b) => a.name.localeCompare(b.name));
+import { haptics } from '../utils/haptics.js';
 
 export default function Settings({ user }) {
-  const [homeCurrency, setHomeCurrency] = useState('USD');
-  const [country, setCountry] = useState('US');
-  const [username, setUsername] = useState('');
-  const [notifications, setNotifications] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [activeSection, setActiveSection] = useState('profile');
+  const [settings, setSettings] = useState({
+    username: '',
+    country: '',
+    home_currency: 'USD',
+    notifications_enabled: true,
+    budget_warnings: true
+  });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
-    if (user) {
-      loadUserSettings();
-    }
-  }, [user]);
+    loadSettings();
+  }, []);
 
-  const loadUserSettings = async () => {
+  const loadSettings = async () => {
+    setLoading(true);
     try {
       const { data } = await getUserSettings(user.id);
       if (data) {
-        setHomeCurrency(data.home_currency || 'USD');
-        setCountry(data.country || 'US');
-        setUsername(data.username || '');
-        setNotifications(data.notifications !== false);
+        setSettings(data);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    setSaved(false);
-
-    try {
-      await updateUserSettings(user.id, {
-        home_currency: homeCurrency,
-        country: country,
-        username: username,
-        notifications: notifications,
-        updated_at: new Date().toISOString()
-      });
-      
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (error) {
-      console.error('Error saving settings:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSave = async () => {
+    setSaving(true);
     try {
-      await signOut();
+      haptics.save();
+      await updateUserSettings(user.id, settings);
+      
+      // Show success feedback
+      const button = document.getElementById('save-button');
+      if (button) {
+        button.textContent = 'Saved!';
+        button.classList.add('bg-green-500');
+        setTimeout(() => {
+          button.textContent = 'Save Changes';
+          button.classList.remove('bg-green-500');
+        }, 2000);
+      }
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Error saving settings:', error);
+      alert('Error saving settings. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (!user) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-12">
-          <SettingsIcon className="mx-auto mb-4 text-gray-400" size={48} />
-          <h3 className="text-lg font-semibold mb-2">Sign in required</h3>
-          <p className="text-gray-600">Please sign in to access settings</p>
-        </div>
-      </div>
-    );
-  }
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      try {
+        haptics.buttonPress();
+        await signOut();
+        window.location.reload();
+      } catch (error) {
+        console.error('Error signing out:', error);
+      }
+    }
+  };
+
+  const countries = [
+    { code: 'US', name: 'United States', currency: 'USD' },
+    { code: 'GB', name: 'United Kingdom', currency: 'GBP' },
+    { code: 'CA', name: 'Canada', currency: 'CAD' },
+    { code: 'AU', name: 'Australia', currency: 'AUD' },
+    { code: 'DE', name: 'Germany', currency: 'EUR' },
+    { code: 'FR', name: 'France', currency: 'EUR' },
+    { code: 'IT', name: 'Italy', currency: 'EUR' },
+    { code: 'ES', name: 'Spain', currency: 'EUR' },
+    { code: 'JP', name: 'Japan', currency: 'JPY' },
+    { code: 'CN', name: 'China', currency: 'CNY' },
+    { code: 'IN', name: 'India', currency: 'INR' },
+    { code: 'BR', name: 'Brazil', currency: 'BRL' },
+    { code: 'MX', name: 'Mexico', currency: 'MXN' },
+    { code: 'KR', name: 'South Korea', currency: 'KRW' },
+    { code: 'SG', name: 'Singapore', currency: 'SGD' },
+    { code: 'CH', name: 'Switzerland', currency: 'CHF' },
+    { code: 'SE', name: 'Sweden', currency: 'SEK' },
+    { code: 'NO', name: 'Norway', currency: 'NOK' },
+    { code: 'DK', name: 'Denmark', currency: 'DKK' },
+    { code: 'NL', name: 'Netherlands', currency: 'EUR' },
+    { code: 'BE', name: 'Belgium', currency: 'EUR' },
+    { code: 'AT', name: 'Austria', currency: 'EUR' },
+    { code: 'IE', name: 'Ireland', currency: 'EUR' },
+    { code: 'PT', name: 'Portugal', currency: 'EUR' },
+    { code: 'FI', name: 'Finland', currency: 'EUR' },
+    { code: 'GR', name: 'Greece', currency: 'EUR' },
+    { code: 'NZ', name: 'New Zealand', currency: 'NZD' },
+    { code: 'ZA', name: 'South Africa', currency: 'ZAR' },
+    { code: 'RU', name: 'Russia', currency: 'RUB' },
+    { code: 'TR', name: 'Turkey', currency: 'TRY' },
+    { code: 'IL', name: 'Israel', currency: 'ILS' },
+    { code: 'AE', name: 'United Arab Emirates', currency: 'AED' },
+    { code: 'SA', name: 'Saudi Arabia', currency: 'SAR' },
+    { code: 'EG', name: 'Egypt', currency: 'EGP' },
+    { code: 'NG', name: 'Nigeria', currency: 'NGN' },
+    { code: 'KE', name: 'Kenya', currency: 'KES' },
+    { code: 'TH', name: 'Thailand', currency: 'THB' },
+    { code: 'VN', name: 'Vietnam', currency: 'VND' },
+    { code: 'PH', name: 'Philippines', currency: 'PHP' },
+    { code: 'MY', name: 'Malaysia', currency: 'MYR' },
+    { code: 'ID', name: 'Indonesia', currency: 'IDR' },
+    { code: 'PK', name: 'Pakistan', currency: 'PKR' },
+    { code: 'BD', name: 'Bangladesh', currency: 'BDT' },
+    { code: 'LK', name: 'Sri Lanka', currency: 'LKR' },
+    { code: 'NP', name: 'Nepal', currency: 'NPR' }
+  ];
+
+  const currencies = [
+    { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+    { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'CHF', name: 'Swiss Franc', symbol: 'Fr' },
+    { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
+    { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
+    { code: 'DKK', name: 'Danish Krone', symbol: 'kr' },
+    { code: 'PLN', name: 'Polish Zloty', symbol: 'zł' },
+    { code: 'CZK', name: 'Czech Koruna', symbol: 'Kč' },
+    { code: 'HUF', name: 'Hungarian Forint', symbol: 'Ft' },
+    { code: 'RON', name: 'Romanian Leu', symbol: 'lei' },
+    { code: 'BGN', name: 'Bulgarian Lev', symbol: 'лв' },
+    { code: 'HRK', name: 'Croatian Kuna', symbol: 'kn' },
+    { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
+    { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
+    { code: 'ILS', name: 'Israeli Shekel', symbol: '₪' },
+    { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
+    { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
+    { code: 'QAR', name: 'Qatari Riyal', symbol: '﷼' },
+    { code: 'KWD', name: 'Kuwaiti Dinar', symbol: 'د.ك' },
+    { code: 'BHD', name: 'Bahraini Dinar', symbol: 'د.ب' },
+    { code: 'OMR', name: 'Omani Rial', symbol: 'ر.ع' },
+    { code: 'JOD', name: 'Jordanian Dinar', symbol: 'د.ا' },
+    { code: 'LBP', name: 'Lebanese Pound', symbol: 'ل.ل' },
+    { code: 'EGP', name: 'Egyptian Pound', symbol: 'ج.م' },
+    { code: 'MAD', name: 'Moroccan Dirham', symbol: 'د.م' },
+    { code: 'TND', name: 'Tunisian Dinar', symbol: 'د.ت' },
+    { code: 'DZD', name: 'Algerian Dinar', symbol: 'د.ج' },
+    { code: 'LYD', name: 'Libyan Dinar', symbol: 'د.ل' },
+    { code: 'SDG', name: 'Sudanese Pound', symbol: 'ج.س' },
+    { code: 'NGN', name: 'Nigerian Naira', symbol: '₦' },
+    { code: 'GHS', name: 'Ghanaian Cedi', symbol: '₵' },
+    { code: 'XOF', name: 'West African CFA', symbol: 'CFA' },
+    { code: 'XAF', name: 'Central African CFA', symbol: 'FCFA' },
+    { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
+    { code: 'BWP', name: 'Botswana Pula', symbol: 'P' },
+    { code: 'NAD', name: 'Namibian Dollar', symbol: 'N$' },
+    { code: 'SZL', name: 'Swazi Lilangeni', symbol: 'E' },
+    { code: 'KES', name: 'Kenyan Shilling', symbol: 'Ksh' },
+    { code: 'UGX', name: 'Ugandan Shilling', symbol: 'USh' },
+    { code: 'TZS', name: 'Tanzanian Shilling', symbol: 'TSh' },
+    { code: 'RWF', name: 'Rwandan Franc', symbol: 'Rw' },
+    { code: 'BIF', name: 'Burundian Franc', symbol: 'FBu' },
+    { code: 'MUR', name: 'Mauritian Rupee', symbol: '₨' },
+    { code: 'SCR', name: 'Seychellois Rupee', symbol: '₨' },
+    { code: 'KMF', name: 'Comorian Franc', symbol: 'KMF' },
+    { code: 'MGA', name: 'Malagasy Ariary', symbol: 'Ar' },
+    { code: 'ZMW', name: 'Zambian Kwacha', symbol: 'ZK' },
+    { code: 'MWK', name: 'Malawian Kwacha', symbol: 'MK' },
+    { code: 'BWP', name: 'Botswana Pula', symbol: 'P' },
+    { code: 'NAD', name: 'Namibian Dollar', symbol: 'N$' },
+    { code: 'SZL', name: 'Swazi Lilangeni', symbol: 'E' },
+    { code: 'LSL', name: 'Lesotho Loti', symbol: 'L' },
+    { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
+    { code: 'AOA', name: 'Angolan Kwanza', symbol: 'Kz' },
+    { code: 'XAF', name: 'Central African CFA', symbol: 'FCFA' },
+    { code: 'XOF', name: 'West African CFA', symbol: 'CFA' },
+    { code: 'XPF', name: 'CFP Franc', symbol: '₣' },
+    { code: 'VUV', name: 'Vanuatu Vatu', symbol: 'VT' },
+    { code: 'WST', name: 'Samoan Tala', symbol: 'WS$' },
+    { code: 'TOP', name: 'Tongan Paʻanga', symbol: 'T$' },
+    { code: 'SBD', name: 'Solomon Islands Dollar', symbol: 'SI$' },
+    { code: 'FJD', name: 'Fiji Dollar', symbol: 'FJ$' },
+    { code: 'PGK', name: 'Papua New Guinea Kina', symbol: 'K' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+    { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
+    { code: 'THB', name: 'Thai Baht', symbol: '฿' },
+    { code: 'LAK', name: 'Lao Kip', symbol: '₭' },
+    { code: 'KHR', name: 'Cambodian Riel', symbol: '៛' },
+    { code: 'VND', name: 'Vietnamese Dong', symbol: '₫' },
+    { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
+    { code: 'BND', name: 'Brunei Dollar', symbol: 'B$' },
+    { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+    { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },
+    { code: 'PHP', name: 'Philippine Peso', symbol: '₱' },
+    { code: 'TWD', name: 'New Taiwan Dollar', symbol: 'NT$' },
+    { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
+    { code: 'MOP', name: 'Macanese Pataca', symbol: 'MOP$' },
+    { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
+    { code: 'KPW', name: 'North Korean Won', symbol: '₩' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+    { code: 'MNT', name: 'Mongolian Tögrög', symbol: '₮' },
+    { code: 'NPR', name: 'Nepalese Rupee', symbol: '₨' },
+    { code: 'BTN', name: 'Bhutanese Ngultrum', symbol: 'Nu.' },
+    { code: 'BDT', name: 'Bangladeshi Taka', symbol: '৳' },
+    { code: 'LKR', name: 'Sri Lankan Rupee', symbol: 'රු' },
+    { code: 'MVR', name: 'Maldivian Rufiyaa', symbol: 'Rf' },
+    { code: 'PKR', name: 'Pakistani Rupee', symbol: '₨' },
+    { code: 'AFN', name: 'Afghan Afghani', symbol: '؋' },
+    { code: 'IRR', name: 'Iranian Rial', symbol: '﷼' },
+    { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' },
+    { code: 'SYP', name: 'Syrian Pound', symbol: '£S' },
+    { code: 'JOD', name: 'Jordanian Dinar', symbol: 'د.ا' },
+    { code: 'LBP', name: 'Lebanese Pound', symbol: 'ل.ل' },
+    { code: 'ILS', name: 'Israeli Shekel', symbol: '₪' },
+    { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
+    { code: 'YER', name: 'Yemeni Rial', symbol: '﷼' },
+    { code: 'OMR', name: 'Omani Rial', symbol: 'ر.ع' },
+    { code: 'QAR', name: 'Qatari Riyal', symbol: '﷼' },
+    { code: 'BHD', name: 'Bahraini Dinar', symbol: 'د.ب' },
+    { code: 'KWD', name: 'Kuwaiti Dinar', symbol: 'د.ك' },
+    { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' }
+  ];
 
   const sections = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -133,265 +239,413 @@ export default function Settings({ user }) {
     { id: 'about', label: 'About', icon: HelpCircle },
   ];
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="loading-spinner mx-auto mb-4"></div>
+          <p className="text-white/80">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Settings</h2>
-        <button
-          onClick={handleSave}
-          disabled={loading}
-          className="btn-primary flex items-center gap-2"
-        >
-          {saved ? (
-            <>
-              <Check size={20} />
-              Saved
-            </>
-          ) : (
-            <>
-              <Save size={20} />
-              {loading ? 'Saving...' : 'Save'}
-            </>
-          )}
-        </button>
+      <div className="glass-card mb-6">
+        <h2 className="text-2xl font-bold mb-2">Settings</h2>
+        <p className="text-white/80">Manage your account and preferences</p>
       </div>
 
-      {/* Settings Navigation */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {sections.map(section => {
-          const Icon = section.icon;
-          const isActive = activeSection === section.id;
-          
-          return (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
-                isActive 
-                  ? 'bg-primary-600 text-white' 
-                  : 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              <Icon size={16} />
-              <span className="text-sm font-medium">{section.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Profile Section */}
-      {activeSection === 'profile' && (
-        <div className="space-y-4">
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-4">Profile Information</h3>
-            
-            <div className="flex items-center gap-4 mb-6">
-              <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center">
-                <User size={32} className="text-primary-600" />
-              </div>
-              <div>
-                <div className="font-semibold text-lg">{user.email}</div>
-                <div className="text-sm text-gray-500">User ID: {user.id.slice(0, 8)}...</div>
-                <div className="text-xs text-gray-400">
-                  Member since {new Date(user.created_at).toLocaleDateString()}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
-                className="input-field"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-              <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                className="input-field"
-              >
-                <option value="">Select your country</option>
-                {COUNTRIES.map(country => (
-                  <option key={country.code} value={country.code}>
-                    {country.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Preferences Section */}
-      {activeSection === 'preferences' && (
-        <div className="space-y-4">
-          <div className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <Globe size={20} className="text-primary-600" />
-              <h3 className="text-lg font-semibold">Currency & Region</h3>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Home Currency
-              </label>
-              <p className="text-xs text-gray-500 mb-2">
-                This will be used for all conversions and displayed amounts
-              </p>
-              <select
-                value={homeCurrency}
-                onChange={(e) => setHomeCurrency(e.target.value)}
-                className="input-field"
-              >
-                {getCurrencySelectOptions().map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-200">
-              <div className="text-sm text-blue-800">
-                <div className="font-medium mb-1">How this affects your app:</div>
-                <ul className="space-y-1 text-xs">
-                  <li>• All receipt amounts will be converted to this currency</li>
-                  <li>• Overview and Log tabs will show totals in this currency</li>
-                  <li>• Budget tracking will use this currency</li>
-                  <li>• Export files will use this currency</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Notifications Section */}
-      {activeSection === 'notifications' && (
-        <div className="space-y-4">
-          <div className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <Bell size={20} className="text-primary-600" />
-              <h3 className="text-lg font-semibold">Notifications</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Push Notifications</div>
-                  <div className="text-sm text-gray-500">Get alerts for budget warnings and updates</div>
-                </div>
-                <button
-                  onClick={() => setNotifications(!notifications)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    notifications ? 'bg-primary-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      notifications ? 'translate-x-6' : 'translate-x-1'
+      <div className="flex gap-6">
+        {/* Sidebar */}
+        <div className="w-64 hidden md:block">
+          <div className="glass-card">
+            <div className="space-y-2">
+              {sections.map(section => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                
+                return (
+                  <button
+                    key={section.id}
+                    onClick={() => {
+                      setActiveSection(section.id);
+                      haptics.tabSwitch();
+                    }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-white/20 text-white' 
+                        : 'text-white/60 hover:text-white/80 hover:bg-white/10'
                     }`}
-                  />
-                </button>
-              </div>
+                  >
+                    <Icon size={20} />
+                    <span className="font-medium">{section.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Security Section */}
-      {activeSection === 'security' && (
-        <div className="space-y-4">
-          <div className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <Shield size={20} className="text-primary-600" />
-              <h3 className="text-lg font-semibold">Security</h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium">Change Password</div>
-                  <div className="text-sm text-gray-500">Update your account password</div>
+        {/* Content */}
+        <div className="flex-1">
+          <div className="glass-card">
+            {/* Profile Section */}
+            {activeSection === 'profile' && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <User size={40} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold">{settings.username || 'User'}</h3>
+                    <p className="text-white/60">{user.email}</p>
+                    <p className="text-white/60 text-sm">Member since {new Date(user.created_at).toLocaleDateString()}</p>
+                  </div>
                 </div>
-                <button className="btn-secondary text-sm">
-                  Change
-                </button>
-              </div>
 
-              <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Two-Factor Authentication</div>
-                  <div className="text-sm text-gray-500">Add an extra layer of security</div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Username</label>
+                  <input
+                    type="text"
+                    value={settings.username}
+                    onChange={(e) => setSettings({...settings, username: e.target.value})}
+                    className="glass-input"
+                    placeholder="Enter your username"
+                  />
                 </div>
-                <button className="btn-secondary text-sm">
-                  Enable
-                </button>
-              </div>
-            </div>
 
-            <div className="pt-4 border-t border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Country</label>
+                  <select
+                    value={settings.country}
+                    onChange={(e) => setSettings({...settings, country: e.target.value})}
+                    className="glass-input"
+                  >
+                    <option value="">Select your country</option>
+                    {countries.map(country => (
+                      <option key={country.code} value={country.code}>{country.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">User ID</label>
+                  <input
+                    type="text"
+                    value={user.id}
+                    readOnly
+                    className="glass-input bg-white/5"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Preferences Section */}
+            {activeSection === 'preferences' && (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Home Currency</label>
+                  <select
+                    value={settings.home_currency}
+                    onChange={(e) => setSettings({...settings, home_currency: e.target.value})}
+                    className="glass-input"
+                  >
+                    {currencies.map(currency => (
+                      <option key={currency.code} value={currency.code}>
+                        {currency.name} ({currency.symbol})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-white/60 text-sm mt-2">
+                    This will be used as your default currency for all receipts and spending reports.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Language</label>
+                  <select
+                    defaultValue="en"
+                    className="glass-input"
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="zh">中文</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Date Format</label>
+                  <select
+                    defaultValue="MM/DD/YYYY"
+                    className="glass-input"
+                  >
+                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Time Zone</label>
+                  <select
+                    defaultValue="UTC"
+                    className="glass-input"
+                  >
+                    <option value="UTC">UTC</option>
+                    <option value="EST">Eastern Time (EST)</option>
+                    <option value="CST">Central Time (CST)</option>
+                    <option value="MST">Mountain Time (MST)</option>
+                    <option value="PST">Pacific Time (PST)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Notifications Section */}
+            {activeSection === 'notifications' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Push Notifications</h4>
+                    <p className="text-white/60 text-sm">Receive notifications about your spending</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSettings({...settings, notifications_enabled: !settings.notifications_enabled});
+                      haptics.selection();
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors duration-300 ${
+                      settings.notifications_enabled ? 'bg-purple-500' : 'bg-white/20'
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 bg-white rounded-full transition-transform duration-300 ${
+                        settings.notifications_enabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">Budget Warnings</h4>
+                    <p className="text-white/60 text-sm">Get alerts when you're close to budget limits</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSettings({...settings, budget_warnings: !settings.budget_warnings});
+                      haptics.selection();
+                    }}
+                    className={`w-12 h-6 rounded-full transition-colors duration-300 ${
+                      settings.budget_warnings ? 'bg-purple-500' : 'bg-white/20'
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 bg-white rounded-full transition-transform duration-300 ${
+                        settings.budget_warnings ? 'translate-x-6' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="pt-4 border-t border-white/20">
+                  <h4 className="font-medium mb-4">Notification Types</h4>
+                  <div className="space-y-3">
+                    {['Daily Summary', 'Weekly Report', 'Monthly Overview', 'Budget Alerts', 'New Features'].map(type => (
+                      <div key={type} className="flex items-center justify-between">
+                        <span className="text-white/80">{type}</span>
+                        <button
+                          onClick={() => haptics.selection()}
+                          className="w-12 h-6 rounded-full bg-purple-500"
+                        >
+                          <div className="w-5 h-5 bg-white rounded-full translate-x-6" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Security Section */}
+            {activeSection === 'security' && (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Change Password</label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60" size={20} />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="glass-input pl-12 pr-12"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                        haptics.buttonPress();
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60"
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Two-Factor Authentication</label>
+                  <div className="glass-card bg-white/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">Enable 2FA</h4>
+                        <p className="text-white/60 text-sm">Add an extra layer of security to your account</p>
+                      </div>
+                      <button
+                        onClick={() => haptics.selection()}
+                        className="glass-button px-4 py-2"
+                      >
+                        Setup
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-2">Active Sessions</label>
+                  <div className="space-y-3">
+                    <div className="glass-card bg-white/5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Smartphone size={20} className="text-white/60" />
+                          <div>
+                            <h4 className="font-medium">Current Device</h4>
+                            <p className="text-white/60 text-sm">iPhone 14 Pro • Safari</p>
+                          </div>
+                        </div>
+                        <span className="text-green-400 text-sm">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/20">
+                  <button
+                    onClick={handleSignOut}
+                    className="glass-button w-full flex items-center justify-center gap-2 text-red-300 hover:text-red-200"
+                  >
+                    <LogOut size={20} />
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* About Section */}
+            {activeSection === 'about' && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-white text-4xl font-bold">T</span>
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Tappd</h3>
+                  <p className="text-white/60">Version 1.0.0</p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Features</h4>
+                  <ul className="space-y-2 text-white/80">
+                    <li>• AI-powered receipt scanning</li>
+                    <li>• Automatic expense categorization</li>
+                    <li>• Multi-currency support</li>
+                    <li>• Spending analytics and insights</li>
+                    <li>• Budget tracking and alerts</li>
+                    <li>• Export to CSV</li>
+                    <li>• Cross-device synchronization</li>
+                    <li>• PWA support for offline use</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-2">Support</h4>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => haptics.buttonPress()}
+                      className="glass-button w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <HelpCircle size={20} />
+                        <span>Help Center</span>
+                      </div>
+                      <ChevronRight size={20} />
+                    </button>
+
+                    <button
+                      onClick={() => haptics.buttonPress()}
+                      className="glass-button w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Mail size={20} />
+                        <span>Contact Support</span>
+                      </div>
+                      <ChevronRight size={20} />
+                    </button>
+
+                    <button
+                      onClick={() => haptics.buttonPress()}
+                      className="glass-button w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText size={20} />
+                        <span>Terms of Service</span>
+                      </div>
+                      <ChevronRight size={20} />
+                    </button>
+
+                    <button
+                      onClick={() => haptics.buttonPress()}
+                      className="glass-button w-full flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Shield size={20} />
+                        <span>Privacy Policy</span>
+                      </div>
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-center text-white/60 text-sm">
+                  <p>© 2024 Tappd. All rights reserved.</p>
+                  <p>Made with ❤️ for smart expense tracking</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Save Button */}
+          {activeSection !== 'about' && (
+            <div className="mt-6">
               <button
-                onClick={handleSignOut}
-                className="w-full btn-secondary flex items-center justify-center gap-2"
+                id="save-button"
+                onClick={handleSave}
+                disabled={saving}
+                className="btn-primary w-full"
               >
-                <LogOut size={16} />
-                Sign Out
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
-          </div>
+          )}
         </div>
-      )}
-
-      {/* About Section */}
-      {activeSection === 'about' && (
-        <div className="space-y-4">
-          <div className="card">
-            <div className="flex items-center gap-3 mb-4">
-              <HelpCircle size={20} className="text-primary-600" />
-              <h3 className="text-lg font-semibold">About Tappd</h3>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Version</span>
-                <span className="font-medium">1.0.0</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Build</span>
-                <span className="font-medium">Production</span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="font-medium mb-2">Features</h4>
-              <ul className="space-y-1 text-sm text-gray-600">
-                <li>• AI-powered receipt scanning</li>
-                <li>• Automatic currency conversion</li>
-                <li>• Spending analytics</li>
-                <li>• Budget tracking</li>
-                <li>• Cross-device sync</li>
-              </ul>
-            </div>
-
-            <div className="pt-4 border-t border-gray-200">
-              <h4 className="font-medium mb-2">Support</h4>
-              <div className="space-y-2 text-sm">
-                <a href="#" className="text-primary-600 block">Help Center</a>
-                <a href="#" className="text-primary-600 block">Privacy Policy</a>
-                <a href="#" className="text-primary-600 block">Terms of Service</a>
-                <a href="#" className="text-primary-600 block">Contact Support</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

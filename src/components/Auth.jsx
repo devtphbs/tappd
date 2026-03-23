@@ -80,9 +80,9 @@ export default function Auth({ user, onAuthChange }) {
   if (user) {
     return (
       <div className="min-h-screen safe-area-top flex items-center justify-center p-6">
-        <div className="glass-card max-w-md w-full slide-up">
+        <div className="glass-card max-w-md w-full animate-slide-up">
           <div className="text-center mb-6">
-            <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 floating">
+            <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-float">
               <User size={48} className="text-white" />
             </div>
             <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
@@ -109,9 +109,9 @@ export default function Auth({ user, onAuthChange }) {
 
   return (
     <div className="min-h-screen safe-area-top flex items-center justify-center p-6">
-      <div className="glass-card max-w-md w-full slide-up liquid-fill">
+      <div className="glass-card max-w-md w-full animate-slide-up">
         <div className="text-center mb-8">
-          <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 floating">
+          <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 animate-float">
             <span className="text-white text-5xl font-bold">T</span>
           </div>
           <h1 className="text-4xl font-bold mb-2">Tappd</h1>
@@ -237,7 +237,7 @@ export default function Auth({ user, onAuthChange }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 rounded-2xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:scale-100"
+            className="btn-primary w-full"
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
