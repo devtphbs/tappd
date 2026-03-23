@@ -34,10 +34,11 @@
 
 @layer components {
   .glass-card {
-    @apply bg-white/10 backdrop-blur-glass border border-glass-border rounded-3xl shadow-glass;
+    @apply bg-white/10 backdrop-blur-glass border border-glass-border rounded-3xl;
     backdrop-filter: var(--glass-backdrop);
     -webkit-backdrop-filter: var(--glass-backdrop);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--glass-shadow);
   }
 
   .glass-card:hover {
